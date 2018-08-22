@@ -77,7 +77,7 @@ var (
 
 //Client is the DBC client main struct
 type Client struct {
-	httpClient *http.Client
+	HTTPClient *http.Client
 	username   string
 	password   string
 	options    *ClientOptions
@@ -143,7 +143,7 @@ func DefaultClient(username, password string) *Client {
 func NewClient(username, password string, options *ClientOptions) *Client {
 	options = setDefaultOptions(options)
 	return &Client{
-		httpClient: &http.Client{
+		HTTPClient: &http.Client{
 			Timeout: *options.HTTPTimeout,
 			Transport: &http.Transport{
 				Dial: (&net.Dialer{
@@ -210,7 +210,7 @@ func (c *Client) CaptchaFromURL(url string) (*CaptchaResponse, error) {
 
 //CaptchaFromHTTPRequest will make a captcha call from an http request
 func (c *Client) CaptchaFromHTTPRequest(request *http.Request) (*CaptchaResponse, error) {
-	response, err := c.httpClient.Do(request)
+	response, err := c.HTTPClient.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +411,7 @@ func (c *Client) Status() (*StatusResponse, error) {
 
 func (c *Client) makeRequest(request *http.Request) ([]byte, error) {
 	request.Header.Add(`Accept`, `application/json`)
-	resp, err := c.httpClient.Do(request)
+	resp, err := c.HTTPClient.Do(request)
 	if err != nil {
 		return nil, err
 	}
