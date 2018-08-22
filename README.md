@@ -11,12 +11,12 @@ Package godbc implements deathbycaptcha's API
     			if err != nil {
     				panic(err)
     			}
-    			if status.IsServiceOverloaded {
+                if status.IsServiceOverloaded {
     				fmt.Println("Service is overloaded, this may fail")
     			}
 
     			user, err := client.User()
-                if err != nil {
+    			if err != nil {
     				panic(err)
     			}
     			if user.IsBanned || !user.HasCreditLeft() {
@@ -31,11 +31,8 @@ Package godbc implements deathbycaptcha's API
     			if err != nil {
     				panic(err)
     			}
-    			if resolved.Text == "?" {
-    				fmt.Println("Captcha could not be resolved")
-    			} else {
-    				fmt.Printf("Captcha text: %s\n", resolved.Text)
-    			}
+
+    			fmt.Printf("Captcha text: %s\n", resolved.Text)
     		}
 
 ## Usage
@@ -52,6 +49,8 @@ var (
 	ErrCaptchaTimeout = errors.New("Captcha query has timed out")
 	//ErrCaptchaRejected - The server did reject the image data, as not being a valid image
 	ErrCaptchaRejected = errors.New("Captcha was rejected - not a valid image")
+	//ErrCaptchaInvalid - The captcha was not correctly solved
+	ErrCaptchaInvalid = errors.New("Captcha is invalid")
 	//ErrUnexpectedServerError - An unexpected error occured on the server side
 	ErrUnexpectedServerError = errors.New("Unexpected error on server side")
 	//ErrUnexpectedServerResponse - We got an unexpected response from the server
