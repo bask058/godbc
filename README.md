@@ -83,6 +83,7 @@ CaptchaResponse is returned as API response for all captcha related calls
 
 ```go
 type Client struct {
+	HTTPClient *http.Client
 }
 ```
 
