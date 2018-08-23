@@ -1,36 +1,5 @@
 /*
 Package godbc implements deathbycaptcha's API
-
-        func main() {
-			client := godbc.DefaultClient(`user`, `password`)
-
-			status, err := client.Status()
-			if err != nil {
-				panic(err)
-			}
-            if status.IsServiceOverloaded {
-				fmt.Println("Service is overloaded, this may fail")
-			}
-
-			user, err := client.User()
-			if err != nil {
-				panic(err)
-			}
-			if user.IsBanned || !user.HasCreditLeft() {
-				panic("User is banned or no credit left")
-			}
-
-			res, err := client.CaptchaFromFile(`./captcha.jpg`)
-			if err != nil {
-				panic(err)
-			}
-			resolved, err := client.WaitCaptcha(res)
-			if err != nil {
-				panic(err)
-			}
-
-			fmt.Printf("Captcha text: %s\n", resolved.Text)
-		}
 */
 package godbc
 
@@ -45,10 +14,10 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 )
 
-// Variables
 //Error codes returned by failures to do API calls
 var (
 	//ErrCredentialsRejected - Credentials were rejected by service
@@ -75,6 +44,12 @@ var (
 	ErrCaptchaDoesNotExist = errors.New("Captcha does not exist")
 )
 
+//Recaptcha by token proxy types
+const (
+	//RecaptchaProxyTypeHTTP - HTTP proxy type
+	RecaptchaProxyTypeHTTP = "HTTP"
+)
+
 //Client is the DBC client main struct
 type Client struct {
 	HTTPClient *http.Client
@@ -98,6 +73,14 @@ type CaptchaResponse struct {
 	Text      string `json:"text"`
 	Status    int    `json:"status"`
 	Error     string `json:"error"`
+}
+
+//RecaptchaRequestPayload is a payload that goes in a request for recaptcha by token api
+type RecaptchaRequestPayload struct {
+	PageURL   string `json:"pageurl"`
+	GoogleKey string `json:"googlekey"`
+	Proxy     string `json:"proxy,omitempty"`
+	ProxyType string `json:"proxytype,omitempty"`
 }
 
 //StatusResponse  is returned as API response for the `status` call
@@ -190,7 +173,7 @@ func setDefaultOptions(options *ClientOptions) *ClientOptions {
 	}
 
 	if options.CaptchaRetries < 1 {
-		newOptions.CaptchaRetries = 10
+		newOptions.CaptchaRetries = 30
 	} else {
 		newOptions.CaptchaRetries = options.CaptchaRetries
 	}
@@ -288,6 +271,72 @@ func (c *Client) Captcha(content []byte) (*CaptchaResponse, error) {
 	return response, nil
 }
 
+/*RecaptchaWithoutProxy will make a recaptcha by token call, without providing a proxy
+  pageurl: the url of the webpage with the challenge
+  googlekey: the google data-sitekey token
+*/
+func (c *Client) RecaptchaWithoutProxy(pageurl, googlekey string) (*CaptchaResponse, error) {
+	return c.Recaptcha(pageurl, googlekey, "", "")
+}
+
+/*Recaptcha will make a recaptcha by token call
+  pageurl: the url of the webpage with the challenge
+  googlekey: the google data-sitekey token
+  proxy: address of the proxy
+  proxyType: type of the proxy
+*/
+func (c *Client) Recaptcha(pageurl, googlekey, proxy, proxyType string) (*CaptchaResponse, error) {
+	urlReq, err := c.options.Endpoint.Parse(`captcha`)
+	if err != nil {
+		return nil, err
+	}
+
+	v := url.Values{}
+	v.Set("username", c.username)
+	v.Set("password", c.password)
+	v.Set("type", "4")
+
+	payload := RecaptchaRequestPayload{
+		PageURL:   pageurl,
+		GoogleKey: googlekey,
+	}
+
+	if proxy != "" {
+		payload.Proxy = proxy
+		if proxyType == "" {
+			payload.ProxyType = RecaptchaProxyTypeHTTP
+		} else {
+			payload.ProxyType = proxyType
+		}
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	v.Set("token_params", string(payloadBytes))
+
+	req, err := http.NewRequest(`POST`, urlReq.String(), strings.NewReader(v.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("content-type", "application/x-www-form-urlencoded")
+
+	body, err := c.makeRequest(req)
+	response := &CaptchaResponse{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		fmt.Println(string(body))
+		return nil, ErrUnexpectedServerResponse
+	}
+	if response.Status == 255 {
+		return nil, fmt.Errorf("Generic error from service: %s", response.Error)
+	}
+
+	return response, nil
+}
+
 //PollCaptcha will make a captcha poll call
 func (c *Client) PollCaptcha(ressource *CaptchaResponse) (*CaptchaResponse, error) {
 	urlReq, err := c.options.Endpoint.Parse(fmt.Sprintf(`captcha/%d`, ressource.ID))
@@ -322,7 +371,7 @@ func (c *Client) WaitCaptcha(ressource *CaptchaResponse) (*CaptchaResponse, erro
 		time.Sleep(time.Duration(i) * time.Second)
 		response, err := c.PollCaptcha(ressource)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if response.IsCorrect && response.Text != "" {
 			return response, nil

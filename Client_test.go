@@ -2,43 +2,42 @@ package godbc
 
 import (
 	"fmt"
-	"os"
-	"testing"
 )
 
-var user = os.Getenv("DBCUSERNAME")
-var pass = os.Getenv("DBCPASSWORD")
-var client = DefaultClient(user, pass)
+func Example() {
+	client := DefaultClient(`user`, `password`)
 
-func TestClientStatus(t *testing.T) {
-	response, err := client.Status()
+	status, err := client.Status()
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	fmt.Println(response)
-}
+	if status.IsServiceOverloaded {
+		fmt.Println("Service is overloaded, this may fail")
+	}
 
-func TestClientUser(t *testing.T) {
 	user, err := client.User()
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 	if user.IsBanned || !user.HasCreditLeft() {
-		fmt.Println("User is banned or no credit left")
+		panic("User is banned or no credit left")
 	}
-	fmt.Println(user)
-}
 
-func TestClientCaptcha(t *testing.T) {
-	response, err := client.CaptchaFromURL("https://image.ibb.co/hOUgse/af8d6acd142150c2f897c19d65e186b2c40592f9.png")
+	res, err := client.CaptchaFromFile(`./captcha.jpg`)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	fmt.Println(response)
+	resolved, err := client.WaitCaptcha(res)
+	if err != nil {
+		panic(err)
+	}
 
-	response, err = client.WaitCaptcha(response)
+	fmt.Printf("Captcha text: %s\n", resolved.Text)
+
+	ressource, err := client.RecaptchaWithoutProxy(`http://test.com/path_with_recaptcha`, `6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-`)
+	resolved, err = client.WaitCaptcha(ressource)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
-	fmt.Println(response)
+	fmt.Printf("Captcha token: %s\n", resolved.Text)
 }

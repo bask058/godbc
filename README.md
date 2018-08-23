@@ -2,40 +2,56 @@
 --
     import "."
 
-Package godbc implements deathbycaptcha's API
+Package godbc implements deathbycaptcha's HTTP API and ReCaptcha by Token API
 
-            func main() {
-    			client := godbc.DefaultClient(`user`, `password`)
+Example:
+```go
+    client := DefaultClient(`user`, `password`)
 
-    			status, err := client.Status()
-    			if err != nil {
-    				panic(err)
-    			}
-                if status.IsServiceOverloaded {
-    				fmt.Println("Service is overloaded, this may fail")
-    			}
+    status, err := client.Status()
+    if err != nil {
+        panic(err)
+    }
+    if status.IsServiceOverloaded {
+        fmt.Println("Service is overloaded, this may fail")
+    }
 
-    			user, err := client.User()
-    			if err != nil {
-    				panic(err)
-    			}
-    			if user.IsBanned || !user.HasCreditLeft() {
-    				panic("User is banned or no credit left")
-    			}
+    user, err := client.User()
+    if err != nil {
+        panic(err)
+    }
+    if user.IsBanned || !user.HasCreditLeft() {
+        panic("User is banned or no credit left")
+    }
 
-    			res, err := client.CaptchaFromFile(`./captcha.jpg`)
-    			if err != nil {
-    				panic(err)
-    			}
-    			resolved, err := client.WaitCaptcha(res)
-    			if err != nil {
-    				panic(err)
-    			}
+    res, err := client.CaptchaFromFile(`./captcha.jpg`)
+    if err != nil {
+        panic(err)
+    }
+    resolved, err := client.WaitCaptcha(res)
+    if err != nil {
+        panic(err)
+    }
 
-    			fmt.Printf("Captcha text: %s\n", resolved.Text)
-    		}
+    fmt.Printf("Captcha text: %s\n", resolved.Text)
+
+    ressource, err := client.RecaptchaWithoutProxy(`http://test.com/path_with_recaptcha`, `6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-`)
+    resolved, err = client.WaitCaptcha(ressource)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf("Captcha token: %s\n", resolved.Text)
+```
 
 ## Usage
+
+```go
+const (
+	//RecaptchaProxyTypeHTTP - HTTP proxy type
+	RecaptchaProxyTypeHTTP = "HTTP"
+)
+```
+Recaptcha by token proxy types
 
 ```go
 var (
@@ -63,7 +79,7 @@ var (
 	ErrCaptchaDoesNotExist = errors.New("Captcha does not exist")
 )
 ```
-Variables Error codes returned by failures to do API calls
+Error codes returned by failures to do API calls
 
 #### type CaptchaResponse
 
@@ -144,6 +160,29 @@ func (c *Client) PollCaptcha(ressource *CaptchaResponse) (*CaptchaResponse, erro
 ```
 PollCaptcha will make a captcha poll call
 
+#### func (*Client) Recaptcha
+
+```go
+func (c *Client) Recaptcha(pageurl, googlekey, proxy, proxyType string) (*CaptchaResponse, error)
+```
+Recaptcha will make a recaptcha by token call
+
+    pageurl: the url of the webpage with the challenge
+    googlekey: the google data-sitekey token
+    proxy: address of the proxy
+    proxyType: type of the proxy
+
+#### func (*Client) RecaptchaWithoutProxy
+
+```go
+func (c *Client) RecaptchaWithoutProxy(pageurl, googlekey string) (*CaptchaResponse, error)
+```
+RecaptchaWithoutProxy will make a recaptcha by token call, without providing a
+proxy
+
+    pageurl: the url of the webpage with the challenge
+    googlekey: the google data-sitekey token
+
 #### func (*Client) ReportCaptcha
 
 ```go
@@ -184,6 +223,20 @@ type ClientOptions struct {
 ```
 
 ClientOptions is the client's options struct to be sent in the constructor
+
+#### type RecaptchaRequestPayload
+
+```go
+type RecaptchaRequestPayload struct {
+	PageURL   string `json:"pageurl"`
+	GoogleKey string `json:"googlekey"`
+	Proxy     string `json:"proxy,omitempty"`
+	ProxyType string `json:"proxytype,omitempty"`
+}
+```
+
+RecaptchaRequestPayload is a payload that goes in a request for recaptcha by
+token api
 
 #### type StatusResponse
 
