@@ -356,7 +356,7 @@ func (c *Client) PollCaptcha(ressource *CaptchaResponse) (*CaptchaResponse, erro
 		return nil, fmt.Errorf("Generic error from service: %s", response.Error)
 	}
 
-	if response.Text == "?" {
+	if !response.IsCorrect {
 		return nil, ErrCaptchaInvalid
 	}
 
