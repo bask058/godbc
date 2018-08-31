@@ -261,7 +261,6 @@ func (c *Client) Captcha(content []byte) (*CaptchaResponse, error) {
 	response := &CaptchaResponse{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Println(string(body))
 		return nil, ErrUnexpectedServerResponse
 	}
 	if response.Status == 255 {
@@ -327,7 +326,6 @@ func (c *Client) Recaptcha(pageurl, googlekey, proxy, proxyType string) (*Captch
 	response := &CaptchaResponse{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Println(string(body))
 		return nil, ErrUnexpectedServerResponse
 	}
 	if response.Status == 255 {
@@ -371,6 +369,9 @@ func (c *Client) WaitCaptcha(ressource *CaptchaResponse) (*CaptchaResponse, erro
 		time.Sleep(time.Duration(i) * time.Second)
 		response, err := c.PollCaptcha(ressource)
 		if err != nil {
+			if err == ErrCaptchaInvalid {
+				return nil, err
+			}
 			continue
 		}
 		if response.IsCorrect && response.Text != "" {
@@ -395,7 +396,6 @@ func (c *Client) ReportCaptcha(ressource *CaptchaResponse) (*CaptchaResponse, er
 	response := &CaptchaResponse{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Println(string(body))
 		return nil, ErrUnexpectedServerResponse
 	}
 	if response.Status == 255 {
@@ -477,10 +477,10 @@ func (c *Client) makeRequest(request *http.Request) ([]byte, error) {
 		return nil, ErrUnexpectedServerError
 	}
 	if resp.StatusCode == 503 {
-		if regexp.MustCompile(`/captcha$`).MatchString(request.URL.Path) {
+		if regexp.MustCompile(`captcha$`).MatchString(request.URL.Path) {
 			return nil, ErrOverloadedServer
 		}
-		if regexp.MustCompile(`/report$`).MatchString(request.URL.Path) {
+		if regexp.MustCompile(`report$`).MatchString(request.URL.Path) {
 			return nil, ErrReportRejected
 		}
 		return nil, ErrUnexpectedServerResponse
