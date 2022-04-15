@@ -50,6 +50,12 @@ const (
 	RecaptchaProxyTypeHTTP = "HTTP"
 )
 
+//Hcaptcha by token proxy types
+const (
+	//HcaptchaProxyTypeHTTP - HTTP proxy type
+	HcaptchaProxyTypeHTTP = "HTTP"
+)
+
 //Client is the DBC client main struct
 type Client struct {
 	HTTPClient *http.Client
@@ -79,6 +85,14 @@ type CaptchaResponse struct {
 type RecaptchaRequestPayload struct {
 	PageURL   string `json:"pageurl"`
 	GoogleKey string `json:"googlekey"`
+	Proxy     string `json:"proxy,omitempty"`
+	ProxyType string `json:"proxytype,omitempty"`
+}
+
+//HcaptchaRequestPayload is a payload that goes in a request for hcaptcha by token api
+type HcaptchaRequestPayload struct {
+	PageURL   string `json:"pageurl"`
+	SiteKey   string `json:"sitekey"`
 	Proxy     string `json:"proxy,omitempty"`
 	ProxyType string `json:"proxytype,omitempty"`
 }
@@ -315,6 +329,71 @@ func (c *Client) Recaptcha(pageurl, googlekey, proxy, proxyType string) (*Captch
 	}
 
 	v.Set("token_params", string(payloadBytes))
+
+	req, err := http.NewRequest(`POST`, urlReq.String(), strings.NewReader(v.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("content-type", "application/x-www-form-urlencoded")
+
+	body, err := c.makeRequest(req)
+	response := &CaptchaResponse{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, ErrUnexpectedServerResponse
+	}
+	if response.Status == 255 {
+		return nil, fmt.Errorf("Generic error from service: %s", response.Error)
+	}
+
+	return response, nil
+}
+
+/*RecaptchaWithoutProxy will make a recaptcha by token call, without providing a proxy
+  pageurl: the url of the webpage with the challenge
+  googlekey: the google data-sitekey token
+*/
+func (c *Client) HcaptchaWithoutProxy(pageurl, googlekey string) (*CaptchaResponse, error) {
+	return c.Hcaptcha(pageurl, googlekey, "", "")
+}
+
+/*Recaptcha will make a recaptcha by token call
+  pageurl: the url of the webpage with the challenge
+  sitekey: the hcaptcha data-sitekey token
+  proxy: address of the proxy
+  proxyType: type of the proxy
+*/
+func (c *Client) Hcaptcha(pageurl, sitekey, proxy, proxyType string) (*CaptchaResponse, error) {
+	urlReq, err := c.options.Endpoint.Parse(`captcha`)
+	if err != nil {
+		return nil, err
+	}
+
+	v := url.Values{}
+	v.Set("username", c.username)
+	v.Set("password", c.password)
+	v.Set("type", "7")
+
+	payload := HcaptchaRequestPayload{
+		PageURL: pageurl,
+		SiteKey: sitekey,
+	}
+
+	if proxy != "" {
+		payload.Proxy = proxy
+		if proxyType == "" {
+			payload.ProxyType = HcaptchaProxyTypeHTTP
+		} else {
+			payload.ProxyType = proxyType
+		}
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	v.Set("hcaptcha_params", string(payloadBytes))
 
 	req, err := http.NewRequest(`POST`, urlReq.String(), strings.NewReader(v.Encode()))
 	if err != nil {
