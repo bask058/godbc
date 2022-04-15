@@ -349,15 +349,15 @@ func (c *Client) Recaptcha(pageurl, googlekey, proxy, proxyType string) (*Captch
 	return response, nil
 }
 
-/*RecaptchaWithoutProxy will make a recaptcha by token call, without providing a proxy
+/*HcaptchaWithoutProxy will make a recaptcha by token call, without providing a proxy
   pageurl: the url of the webpage with the challenge
-  googlekey: the google data-sitekey token
+  sitekey: the hcaptcha data-sitekey token
 */
-func (c *Client) HcaptchaWithoutProxy(pageurl, googlekey string) (*CaptchaResponse, error) {
-	return c.Hcaptcha(pageurl, googlekey, "", "")
+func (c *Client) HcaptchaWithoutProxy(pageurl, sitekey string) (*CaptchaResponse, error) {
+	return c.Hcaptcha(pageurl, sitekey, "", "")
 }
 
-/*Recaptcha will make a recaptcha by token call
+/*Hcaptcha will make a recaptcha by token call
   pageurl: the url of the webpage with the challenge
   sitekey: the hcaptcha data-sitekey token
   proxy: address of the proxy
